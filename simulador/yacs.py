@@ -52,12 +52,15 @@ class Parametros(object):
 
         self.procesos = args.procesos
         self.cores = args.cores
-        if args.L1 > args.L2:
-            raise argparse.ArgumentTypeError(f"La memoria L1 debe ser menor a la memoria L2")
-        else:
-            self.memoriaL1 = args.L1
-            self.memoriaL2 = args.L2
-        
+        try:
+            if args.L1 > args.L2:
+                raise argparse.ArgumentTypeError(f"La memoria L1 debe ser menor a la memoria L2")
+            else:
+                self.memoriaL1 = args.L1
+                self.memoriaL2 = args.L2
+        except argparse.ArgumentTypeError as e:
+            print(e)
+            exit(1)
         return self
         
 
