@@ -62,7 +62,29 @@ class Parametros(object):
             print(e)
             exit(1)
         return self
+
+class Proceso(object):
+    def __init__(self, env: simpy.Environment, idProceso: int):
+        self.env = env
+        self.idProceso = idProceso
+
         
+
+class Procesador(object):
+
+    def __init__(self, env: simpy.Environment, procesos: int, cores: int, memoriaL1: int, memoriaL2: int):
+        self.env = env
+        self.procesos = procesos
+        self.cores = cores
+        self.memoriaL1 = memoriaL1
+        self.memoriaL2 = memoriaL2
+
+        procesadorSim = self.env.process(self.run())
+
+    def run(self):
+        for idProceso in range(0, self.procesos):
+            self.env.process(self.proceso(idProceso))
+
 
 def main():
 
@@ -74,8 +96,8 @@ def main():
     print(f"Memoria L2: {parametros.memoriaL2} \n")
 
 
-    #env = simpy.Environment()
-    #env.run()
+    env = simpy.Environment()
+    env.run()
 
 
 
