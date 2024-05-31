@@ -68,8 +68,8 @@ class Proceso(object):
         self.datos = [
             [letra, False] for letra in np.random.choice(list(string.ascii_lowercase), self.num_datos, replace=False)
         ]
-        self.tespera = np.random.randint(1, 10)  # Simulación de t_espera
-        self.tfinalizacion = np.random.randint(1, 10)  # Simulación de t_finalizacion
+        self.tespera = 0  # Simulación de t_espera
+        self.tfinalizacion = 0  # Simulación de t_finalizacion
 
 class Core(object):
     def __init__(self, idCore: int, L1: int, L2: int):
@@ -108,8 +108,9 @@ class Procesador(object):
 
     def crear_proceso(self, idProceso: int):
         proceso = Proceso(self.env, idProceso)
-        Debug.log(self.env, f"Proceso id:{idProceso} creado con {proceso.num_datos} datos.")
-        yield self.env.timeout(proceso.tespera)
+        letras = [dato[0] for dato in proceso.datos]  # Extract the letters from the datos list
+        Debug.log(self.env, f"Proceso id:{idProceso} creado con {proceso.num_datos} datos. Datos = {letras}")
+        yield self.env.timeout(0)
         self.env.process(self.asignar_proceso(proceso))
 
     def asignar_proceso(self, proceso: Proceso):
@@ -117,9 +118,11 @@ class Procesador(object):
             core = self.assign()
             if core:
                 start_time = self.env.now
+                proceso.tespera = start_time
                 for data in proceso.datos:
                     yield self.env.process(self.use_data(core, data))
                 end_time = self.env.now
+                proceso.tfinalizacion = end_time
                 service_time = end_time - start_time
                 self.total_service_time += service_time
                 self.core_usage[core.idCore] += service_time
@@ -129,7 +132,7 @@ class Procesador(object):
                 break
             else:
                 yield self.env.timeout(1)
-        yield self.env.timeout(proceso.tfinalizacion)
+        yield self.env.timeout(0)
 
     def use_data(self, core: Core, data):
         if len(core.procesosL1) > core.L1:
@@ -166,6 +169,7 @@ class Procesador(object):
 
 
 def main():
+    os.system('pip install -r requirements.txt')
     os.system('cls' if os.name == 'nt' else 'clear')
     params = Props()
 
@@ -184,7 +188,7 @@ def main():
     cons=Console()
     table = Table(title="Uso de los cores", show_header=True, header_style="bold magenta")
     table.add_column("Core", style="dim", width=12)
-    table.add_column("Uso (Tiempo)", justify="right")
+    table.add_column("Uso (Ciclos de reloj)", justify="right")
     for i,j in enumerate(core_usage):
         table.add_row(str(i),str(j))
     cons.print(table)
