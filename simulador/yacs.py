@@ -86,77 +86,6 @@ class Core(object):
         self.TL1 = 4
         self.TL2 = 10
         self.inUse = False
-
-
-class SimularEquipo(object):
-    def __init__(self, env: simpy.Environment, cores: int, L1: int, L2: int, procesos: int):
-        self.env = env
-        self.procesos = procesos
-        self.Psuccess = 0
-        self.ram = Tram
-        self.total_service_time = 0
-        self.throughput = 0
-        self.freecore = simpy.Container(env, cores, init=cores)
-        self.cores = [Core(i, L1, L2) for i in range(cores)]
-        self.env.process(self.run())
-
-    def run(self):
-        for idProceso in range(self.procesos):
-            self.env.process(self.crear_proceso(idProceso))
-        yield self.env.timeout(0)
-
-    def crear_proceso(self, idProceso: int):
-        proceso = Proceso(self.env, idProceso)
-        Debug.log(self.env, f"IdProceso:{idProceso} Datos:{proceso.num_datos}")
-        yield self.env.timeout(0)  # Añadiendo una pausa para crear el proceso
-        while True:
-            core = self.assign()
-            if core:
-                start_time = self.env.now
-                for data in proceso.datos:
-                    yield self.env.process(self.use_data(core, data))
-                end_time = self.env.now
-                service_time = end_time - start_time
-                self.total_service_time += service_time
-                self.throughput += 1
-                self.success(core)
-                Debug.log(self.env, f"Proceso id:{idProceso} terminado. Tiempo de servicio: {service_time:.4f}")
-                break
-            else:
-                Debug.log(self.env, f"Proceso id:{idProceso} no pudo ser asignado a ningún core.")
-                break
-        yield self.env.timeout(proceso.tfinalizacion)
-
-    def use_data(self, core: Core, data):
-        if len(core.procesosL1) > core.L1:
-            core.procesosL1.pop(0)
-        if len(core.procesosL2) > core.L2:
-            core.procesosL2.pop(0)
-        if data in core.procesosL1:
-            core.cL1 += 1
-            yield self.env.timeout(core.TL1)
-        elif data in core.procesosL2:
-            core.cL2 += 1
-            yield self.env.timeout(core.TL2 + core.TL1)
-        else:
-            core.procesosL2.append(data)
-            core.procesosL1.append(data)
-            core.ram += 1
-            yield self.env.timeout(core.TL2 + core.TL1 + 200)
-
-    def assign(self):
-        for core in self.cores:
-            if not core.inUse:
-                core.inUse = True
-                return core
-        return None
-    
-    def success(self, core: Core):
-        core.inUse = False
-    
-    def resultados(self):
-        avg_service_time = self.total_service_time / self.procesos if self.procesos > 0 else 0
-        return self.throughput, avg_service_time
     
 class Procesador(object):
     def __init__(self, env: simpy.Environment, procesos: int, cores: int, memoriaL1: int, memoriaL2: int):
@@ -165,10 +94,11 @@ class Procesador(object):
         self.cores = [Core(i, memoriaL1, memoriaL2) for i in range(cores)]
         self.memoriaL1 = memoriaL1
         self.memoriaL2 = memoriaL2
+        self.cola = simpy.Store(env)
+        self.env.process(self.run())
         self.throughput = 0
         self.total_service_time = 0
         self.core_usage = np.zeros(cores).tolist()
-        self.env.process(self.run())
 
     def run(self):
         for idProceso in range(self.procesos):
@@ -179,6 +109,9 @@ class Procesador(object):
         proceso = Proceso(self.env, idProceso)
         Debug.log(self.env, f"Proceso id:{idProceso} creado con {proceso.num_datos} datos.")
         yield self.env.timeout(proceso.tespera)
+        self.env.process(self.asignar_proceso(proceso))
+
+    def asignar_proceso(self, proceso: Proceso):
         while True:
             core = self.assign()
             if core:
@@ -191,11 +124,10 @@ class Procesador(object):
                 self.core_usage[core.idCore] += service_time
                 self.throughput += 1
                 self.success(core)
-                Debug.log(self.env, f"Proceso id:{idProceso} terminado. Tiempo de servicio: {service_time:.4f}")
+                Debug.log(self.env, f"Proceso id:{proceso.idProceso} terminado. Tiempo de servicio: {service_time:.4f}")
                 break
             else:
-                Debug.log(self.env, f"Proceso id:{idProceso} no pudo ser asignado a ningún core.")
-                break
+                yield self.env.timeout(1)
         yield self.env.timeout(proceso.tfinalizacion)
 
     def use_data(self, core: Core, data):
@@ -216,11 +148,10 @@ class Procesador(object):
             yield self.env.timeout(core.TL2 + core.TL1 + 200)  # TRAM=200
 
     def assign(self):
-        available_cores = [core for core in self.cores if not core.inUse]
-        if available_cores:
-            selected_core = available_cores[0]  # Select the first available core
-            selected_core.inUse = True
-            return selected_core
+        for core in self.cores:
+            if not core.inUse:
+                core.inUse = True
+                return core
         return None
 
     def success(self, core: Core):
