@@ -1,9 +1,10 @@
 import simpy
+from rich.console import Console
+from rich.table import Table
 import argparse
 import numpy as np
 import string
 import os
-import time
 
 Tram = 200 #ciclos de reloj, velocidad de acceso a datos en memoria, definida el enunciado
 
@@ -159,12 +160,12 @@ class Procesador(object):
 
     def resultados(self):
         avg_service_time = self.total_service_time / self.procesos if self.procesos > 0 else 0
-        core_usage_percent = [round((usage / self.env.now * 100),4) for usage in self.core_usage]
-        return self.throughput, avg_service_time, core_usage_percent
+        core_usage = [round((usage),4) for usage in self.core_usage]
+        self.throughput = self.throughput / self.env.now
+        return self.throughput, avg_service_time, core_usage
 
 
 def main():
-    start=time.time()
     os.system('cls' if os.name == 'nt' else 'clear')
     params = Props()
 
@@ -177,12 +178,17 @@ def main():
     env = simpy.Environment()
     procesador = Procesador(env, params.procesos, params.cores, params.memoriaL1, params.memoriaL2)
     env.run()
-    throughput, avg_service_time, core_usage_percent = procesador.resultados()
-    print(f"Throughput: {throughput}")
+    throughput, avg_service_time, core_usage = procesador.resultados()
+    print(f"Throughput: {throughput:.4f}")
     print(f"Tiempo de servicio promedio: {avg_service_time:.4f}")
-    print(f"Uso de los cores (%): {core_usage_percent}")
-    print("="*100, "\n")
-    print(f"Tiempo de ejecución: {time.time()-start:.4f} segundos")
+    cons=Console()
+    table = Table(title="Uso de los cores", show_header=True, header_style="bold magenta")
+    table.add_column("Core", style="dim", width=12)
+    table.add_column("Uso (Tiempo)", justify="right")
+    for i,j in enumerate(core_usage):
+        table.add_row(str(i),str(j))
+    cons.print(table)
+    # print(f"Uso de los cores (%): {core_usage}")
 
 if __name__ == "__main__":
     main()
