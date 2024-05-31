@@ -99,7 +99,7 @@ class Procesador(object):
         self.env.process(self.run())
         self.throughput = 0
         self.total_service_time = 0
-        self.core_usage = np.zeros(cores).tolist()
+        self.usoCore = np.zeros(cores).tolist()
 
     def run(self):
         for idProceso in range(self.procesos):
@@ -108,7 +108,7 @@ class Procesador(object):
 
     def crear_proceso(self, idProceso: int):
         proceso = Proceso(self.env, idProceso)
-        letras = [dato[0] for dato in proceso.datos]  # Extract the letters from the datos list
+        letras = [dato[0] for dato in proceso.datos]
         Debug.log(self.env, f"Proceso id:{idProceso} creado con {proceso.num_datos} datos. Datos = {letras}")
         yield self.env.timeout(0)
         self.env.process(self.asignar_proceso(proceso))
@@ -125,7 +125,7 @@ class Procesador(object):
                 proceso.tfinalizacion = end_time
                 service_time = end_time - start_time
                 self.total_service_time += service_time
-                self.core_usage[core.idCore] += service_time
+                self.usoCore[core.idCore] += service_time
                 self.throughput += 1
                 self.success(core)
                 Debug.log(self.env, f"Proceso id:{proceso.idProceso} terminado. Tiempo de servicio: {service_time:.4f}")
@@ -162,10 +162,10 @@ class Procesador(object):
         core.inUse = False
 
     def resultados(self):
-        avg_service_time = self.total_service_time / self.procesos if self.procesos > 0 else 0
-        core_usage = [round((usage),4) for usage in self.core_usage]
+        tServicioPromedio = self.total_service_time / self.procesos if self.procesos > 0 else 0
+        usoCore = [round((uso),4) for uso in self.usoCore]
         self.throughput = self.throughput / self.env.now
-        return self.throughput, avg_service_time, core_usage
+        return self.throughput, tServicioPromedio, usoCore
 
 
 def main():
@@ -182,17 +182,16 @@ def main():
     env = simpy.Environment()
     procesador = Procesador(env, params.procesos, params.cores, params.memoriaL1, params.memoriaL2)
     env.run()
-    throughput, avg_service_time, core_usage = procesador.resultados()
+    throughput, tServicioPromedio, usoCore = procesador.resultados()
     print(f"Throughput: {throughput:.4f}")
-    print(f"Tiempo de servicio promedio: {avg_service_time:.4f}")
+    print(f"Tiempo de servicio promedio: {tServicioPromedio:.4f}")
     cons=Console()
     table = Table(title="Uso de los cores", show_header=True, header_style="bold magenta")
     table.add_column("Core", style="dim", width=12)
     table.add_column("Uso (Ciclos de reloj)", justify="right")
-    for i,j in enumerate(core_usage):
+    for i,j in enumerate(usoCore):
         table.add_row(str(i),str(j))
     cons.print(table)
-    # print(f"Uso de los cores (%): {core_usage}")
 
 if __name__ == "__main__":
     main()
