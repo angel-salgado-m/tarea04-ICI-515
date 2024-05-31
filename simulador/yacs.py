@@ -169,7 +169,7 @@ class Procesador(object):
 
 
 def main():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    os.system('pip install -r requirements.txt')
     params = Props()
 
     print(f"Procesos: {params.procesos} ")
